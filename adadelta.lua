@@ -58,21 +58,22 @@ function optim.adadelta(opfunc, x, config, state)
    if not state.dfdx_var then
       state.dfdx_var = torch.Tensor():typeAs(dfdx):resizeAs(dfdx):zero()
       state.dx_var = torch.Tensor():typeAs(dfdx):resizeAs(dfdx):zero()
+      state.dfdx_var_e = torch.Tensor():typeAs(dfdx):resizeAs(dfdx)
+      state.dx = torch.Tensor():typeAs(dfdx):resizeAs(dfdx)
    end
 
    -- (5) accumulate gradient E[g^2]
    state.dfdx_var:mul(rho):addcmul(1-rho,dfdx,dfdx)
 
    -- (6) compute update dx
-   local dfdx_std = torch.add(state.dfdx_var,eps):sqrt()
-   local dx_std = torch.add(state.dx_var,eps):sqrt()
-   local dx = dx_std:cdiv(dfdx_std):cmul(-dfdx):mul(scale)
+   state.dfdx_var_e:copy(state.dfdx_var):add(eps)
+   state.dx:copy(state.dx_var):add(eps):cdiv(state.dfdx_var_e):sqrt():cmul(-dfdx):mul(scale)
 
    -- (7) accumulate updates E[dx^2]
-   state.dx_var:mul(rho):addcmul(1-rho,dx,dx)
+   state.dx_var:mul(rho):addcmul(1-rho,state.dx,state.dx)
 
    -- (8) apply update (x = x + dx)
-   x:add(dx)
+   x:add(state.dx)
 
    -- (9) update evaluation counter
    state.evalCounter = state.evalCounter + 1
